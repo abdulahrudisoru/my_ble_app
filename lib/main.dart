@@ -57,6 +57,12 @@ class _MyBleAppState extends State<MyBleApp> {
   }
 
   @override
+  void dispose() {
+    _adapterStateStateSubscription.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return const Placeholder();
   }
