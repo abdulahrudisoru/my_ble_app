@@ -1,10 +1,5 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
-
-import 'screens/bluetooth_off_screen.dart';
-import 'screens/scan_screen.dart';
 
 void main() {
   //FlutterBluePlus.setlogLevel() >> mengatur level log
@@ -17,86 +12,109 @@ void main() {
    * verbose >> Menampilkan semua log (paling detail).
    */
   FlutterBluePlus.setLogLevel(LogLevel.verbose, color: true);
-  runApp(const MyBleApp());
+  runApp(MaterialApp(
+    debugShowCheckedModeBanner: false,
+    home: BluetoothScreen(),
+  ));
 }
 
-class MyBleApp extends StatefulWidget {
-  const MyBleApp({super.key});
+class BluetoothScreen extends StatefulWidget {
+  const BluetoothScreen({super.key});
 
   @override
-  State<MyBleApp> createState() => _MyBleAppState();
+  _BluetoothScreenState createState() => _BluetoothScreenState();
 }
 
-class _MyBleAppState extends State<MyBleApp> {
-  //BluetoothAdapterState >> enum yg mempresentasikan status bluetooth di device (sendiri).
-  //BluetoothAdapterState.unknown >> Status awal (default), artinya status Bluetooth belum diketahui sebelum dicek.
-  /**
-   * unknown >> Status Bluetooth belum diketahui.
-   * unavailable >> Bluetooth tidak tersedia di perangkat (misalnya perangkat tidak mendukung BLE).
-   * unauthorized >>	Aplikasi tidak memiliki izin untuk menggunakan Bluetooth.
-   * turningOn >> Bluetooth sedang dinyalakan.
-   * on >>	Bluetooth dalam keadaan aktif.
-   * turningOff >>	Bluetooth sedang dimatikan.
-   * off >> Bluetooth dalam keadaan mati.
-   */
-  BluetoothAdapterState _adapterState = BluetoothAdapterState.unknown;
+class _BluetoothScreenState extends State<BluetoothScreen> {
+  List<BluetoothDevice> devices = [];
+  BluetoothDevice? connectedDevice;
+  bool isScanning = false;
 
-  late StreamSubscription<BluetoothAdapterState> _adapterStateStateSubscription;
+  void startScan() {
+    if (isScanning) return;
+    setState(() {
+      isScanning = true;
+      devices.clear();
+    });
 
-  @override
-  void initState() {
-    // TODO: implement initState
-    super.initState();
-    _adapterStateStateSubscription =
-        FlutterBluePlus.adapterState.listen((state) {
-      _adapterState = state;
-      if (mounted) {
-        setState(() {});
+    FlutterBluePlus.startScan(timeout: const Duration(seconds: 5));
+
+    FlutterBluePlus.scanResults.listen((results) {
+      for (var result in results) {
+        if (!devices.contains(result.device)) {
+          setState(() {
+            devices.add(result.device);
+          });
+        }
       }
+    });
+
+    Future.delayed(const Duration(seconds: 5), () {
+      FlutterBluePlus.stopScan();
+      setState(() => isScanning = false);
     });
   }
 
-  @override
-  void dispose() {
-    _adapterStateStateSubscription.cancel();
-    super.dispose();
+  Future<void> connectToDevice(BluetoothDevice device) async {
+    await device.connect();
+    setState(() => connectedDevice = device);
   }
 
-  @override
-  Widget build(BuildContext context) {
-    Widget screen = _adapterState == BluetoothAdapterState.on
-        ? const ScanScreen()
-        : BluetoothOffScreen(adapterState: _adapterState);
-
-    return MaterialApp(color: Colors.lightBlue, home: screen, navigatorObservers: [],);
-  }
-}
-
-//
-// This observer listens for Bluetooth Off and dismisses the DeviceScreen
-//
-class BluetoothAdapterStateObserver extends NavigatorObserver {
-  StreamSubscription<BluetoothAdapterState>? _adapterStateSubscription;
-
-  @override
-  void didPush(Route route, Route? previousRoute) {
-    super.didPush(route, previousRoute);
-    if (route.settings.name == '/DeviceScreen') {
-      // Start listening to Bluetooth state changes when a new route is pushed
-      _adapterStateSubscription ??= FlutterBluePlus.adapterState.listen((state) {
-        if (state != BluetoothAdapterState.on) {
-          // Pop the current route if Bluetooth is off
-          navigator?.pop();
-        }
-      });
+  Future<void> disconnectDevice() async {
+    if (connectedDevice != null) {
+      await connectedDevice!.disconnect();
+      setState(() => connectedDevice = null);
     }
   }
 
   @override
-  void didPop(Route route, Route? previousRoute) {
-    super.didPop(route, previousRoute);
-    // Cancel the subscription when the route is popped
-    _adapterStateSubscription?.cancel();
-    _adapterStateSubscription = null;
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Bluetooth Scanner"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: startScan,
+          )
+        ],
+      ),
+      body: Column(
+        children: [
+          if (connectedDevice != null)
+            Container(
+              color: Colors.green,
+              padding: const EdgeInsets.all(10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text("Connected to: ${connectedDevice!.name}"),
+                  ElevatedButton(
+                    onPressed: disconnectDevice,
+                    child: const Text("Disconnect"),
+                  )
+                ],
+              ),
+            ),
+          Expanded(
+            child: ListView.builder(
+              itemCount: devices.length,
+              itemBuilder: (context, index) {
+                return ListTile(
+                  title: Text(devices[index].name.isNotEmpty
+                      ? devices[index].name
+                      : "Unknown Device"),
+                  subtitle: Text(devices[index].id.toString()),
+                  trailing: ElevatedButton(
+                    onPressed: () => connectToDevice(devices[index]),
+                    child: const Text("Connect"),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
