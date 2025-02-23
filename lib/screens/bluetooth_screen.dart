@@ -55,8 +55,8 @@ class BluetoothScreen extends StatelessWidget {
                     itemBuilder: (context, index) {
                       final device = controller.devices[index];
                       return ListTile(
-                        title: Text(device.advName.isNotEmpty
-                            ? device.advName
+                        title: Text(device.platformName.isNotEmpty
+                            ? device.platformName
                             : "Unknown Device"),
                         subtitle: Text(device.remoteId.toString()),
                         trailing: ElevatedButton(
