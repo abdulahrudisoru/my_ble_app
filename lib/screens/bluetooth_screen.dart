@@ -59,10 +59,19 @@ class BluetoothScreen extends StatelessWidget {
                             ? device.platformName
                             : "Unknown Device"),
                         subtitle: Text(device.remoteId.toString()),
-                        trailing: ElevatedButton(
-                          onPressed: () => controller.connectToDevice(device),
-                          child: const Text("Connect"),
-                        ),
+                        trailing: Obx(() {
+                          bool isLoading = controller.connectingDevices[
+                                  device.remoteId.toString()] ??
+                              false;
+
+                          return isLoading
+                              ? const CircularProgressIndicator() // Loading hanya untuk perangkat ini
+                              : ElevatedButton(
+                                  onPressed: () =>
+                                      controller.connectToDevice(device),
+                                  child: const Text("Connect"),
+                                );
+                        }),
                       );
                     },
                   )),
