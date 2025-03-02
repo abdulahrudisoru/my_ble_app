@@ -4,6 +4,8 @@ import '../controllers/bluetooth_controller.dart';
 
 class BluetoothScreen extends StatelessWidget {
   final BluetoothController controller = Get.put(BluetoothController());
+  final TextEditingController dataController =
+      TextEditingController(); // Controller untuk input data
 
   BluetoothScreen({super.key});
 
@@ -46,6 +48,40 @@ class BluetoothScreen extends StatelessWidget {
             }
           }),
 
+          // Menampilkan input dan tombol kirim jika perangkat terhubung
+          Obx(() {
+            if (controller.connectedDevice.value != null) {
+              return Padding(
+                padding: const EdgeInsets.all(10.0),
+                child: Column(
+                  children: [
+                    TextField(
+                      controller: dataController,
+                      decoration: InputDecoration(
+                        labelText: "Enter Data to Send",
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    ElevatedButton(
+                      onPressed: () {
+                        if (dataController.text.isNotEmpty) {
+                          controller.sendData(dataController.text);
+                        } else {
+                          Get.snackbar("Error", "Input cannot be empty",
+                              snackPosition: SnackPosition.BOTTOM);
+                        }
+                      },
+                      child: const Text("Send Data"),
+                    ),
+                  ],
+                ),
+              );
+            } else {
+              return const SizedBox();
+            }
+          }),
+
           // List perangkat yang ditemukan
           Expanded(
             child: Obx(() => controller.devices.isEmpty
@@ -65,7 +101,7 @@ class BluetoothScreen extends StatelessWidget {
                               false;
 
                           return isLoading
-                              ? const CircularProgressIndicator() // Loading hanya untuk perangkat ini
+                              ? const CircularProgressIndicator()
                               : ElevatedButton(
                                   onPressed: () =>
                                       controller.connectToDevice(device),
